@@ -1,0 +1,9 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: manrs_observatory
+      POSTGRES_USER: manrs
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
