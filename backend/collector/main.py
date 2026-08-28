@@ -1,3 +1,4 @@
+import json
 import os
 from dotenv import load_dotenv
 
@@ -36,6 +37,36 @@ def get_manrs_status(asn_number):
     status = participants[0].get("status")
     return {"is_manrs_member": status == "approved", "manrs_score": 0}
 
+def get_manrs_score_details(asn_number):
+    api_key = os.environ.get("MANRS_API_KEY")
+    headers = {"Authorization": f"Bearer {api_key}"}
+    url = f"https://observatory.manrs.org/api/v2/scores/details?asn={asn_number}"
+    response = requests.get(url, headers=headers)
+    print("Status code:", response.status_code)
+    print("Contenu brut:", response.text[:500])
+
+def get_manrs_score_summary(country_code):
+    api_key = os.environ.get("MANRS_API_KEY")
+    headers = {"Authorization": f"Bearer {api_key}"}
+    url = f"https://observatory.manrs.org/api/v2/scores/summary?region={country_code}"
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        return 0
+    data = response.json()
+    key_figures = data["scores"]["keyFigures"]
+
+    actions_to_use = ["antiSpoofing", "coordination", "filtering", "routingInformationRPKI"]
+    values = []
+    for figure in key_figures:
+        if figure["id"] in actions_to_use:
+            values.append(figure["value"])
+
+    if not values:
+        return 0
+
+    moyenne = sum(values) / len(values)
+    return round(moyenne * 100, 2)
+
 def test_connection():
     conn = psycopg2.connect(**DB_CONFIG)
     print("Connexion réussie à PostgreSQL")
@@ -44,5 +75,7 @@ def test_connection():
 if __name__ == "__main__":
     asns = get_asns_for_country("BJ")
     print(asns)
-    manrs_status = get_manrs_status(13335)
+    manrs_status = get_manrs_status(asns[0])
     print(manrs_status)
+    score = get_manrs_score_summary("BJ")
+    print("Score moyen calculé:", score)

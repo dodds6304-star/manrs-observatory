@@ -17,7 +17,7 @@ CREATE TABLE countries (
   country_name        VARCHAR(100),
   total_asn           INTEGER DEFAULT 0,
   manrs_members       INTEGER DEFAULT 0,
-  avg_manrs_score     DECIMAL(3,2) DEFAULT 0,
+  avg_manrs_score     DECIMAL(5,2) DEFAULT 0,
   roa_coverage_pct    DECIMAL(5,2) DEFAULT 0,
   last_updated        TIMESTAMP DEFAULT NOW()
 );
