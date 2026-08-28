@@ -1,3 +1,4 @@
+import schedule
 import json
 import os
 import time
@@ -179,4 +180,8 @@ def run_full_collection():
     print("Collecte complète terminée.")
 
 if __name__ == "__main__":
+    schedule.every(6).hours.do(run_full_collection)
     run_full_collection()
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
