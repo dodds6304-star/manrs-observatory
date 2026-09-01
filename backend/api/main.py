@@ -118,3 +118,73 @@ def get_asn_detail(number: int):
         "roa_coverage_pct": roa_coverage_pct,
         "last_updated": asn_row[9].isoformat()
     }
+@app.get("/api/stats")
+def get_stats():
+    conn = psycopg2.connect(**DB_CONFIG)
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM asn")
+    total_asn = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM asn WHERE is_manrs_member = TRUE")
+    manrs_members = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM prefixes")
+    total_prefixes = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM prefixes WHERE roa_status = 'valid'")
+    valid_prefixes = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+
+    manrs_pct = round((manrs_members / total_asn) * 100, 2) if total_asn else 0
+    roa_pct = round((valid_prefixes / total_prefixes) * 100, 2) if total_prefixes else 0
+
+    return {
+        "total_asn": total_asn,
+        "manrs_members_pct": manrs_pct,
+        "roa_coverage_pct": roa_pct
+    }
+@app.get("/api/search")
+def search_asn(q: str):
+    conn = psycopg2.connect(**DB_CONFIG)
+    cur = conn.cursor()
+
+    if q.isdigit():
+        cur.execute("SELECT asn_number, name, country_code FROM asn WHERE asn_number = %s", (int(q),))
+    else:
+        cur.execute("SELECT asn_number, name, country_code FROM asn WHERE name ILIKE %s", (f"%{q}%",))
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return [
+        {"asn_number": row[0], "name": row[1], "country_code": row[2]}
+        for row in rows
+    ]
+@app.get("/api/asn/{number}/recommendation")
+def get_asn_recommendation(number: int):
+    conn = psycopg2.connect(**DB_CONFIG)
+    cur = conn.cursor()
+
+    cur.execute("SELECT id FROM asn WHERE asn_number = %s", (number,))
+    asn_row = cur.fetchone()
+
+    if not asn_row:
+        cur.close()
+        conn.close()
+        return {"error": "ASN non trouvé"}
+
+    asn_id = asn_row[0]
+    cur.execute("SELECT content, generated_at FROM ai_recommendations WHERE asn_id = %s ORDER BY generated_at DESC LIMIT 1", (asn_id,))
+    reco_row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if not reco_row:
+        return {"content": None, "generated_at": None, "message": "Aucune recommandation générée pour cet ASN"}
+
+    return {"content": reco_row[0], "generated_at": reco_row[1].isoformat()}
