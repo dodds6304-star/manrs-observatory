@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import WestAfricaMap from '../components/WestAfricaMap';
 
 function HomePage() {
   const [countries, setCountries] = useState([]);
@@ -25,6 +26,8 @@ function HomePage() {
           <p>Couverture ROA moyenne : {stats.roa_coverage_pct}%</p>
         </div>
       )}
+
+      <WestAfricaMap countries={countries} />
 
       <table>
         <thead>
