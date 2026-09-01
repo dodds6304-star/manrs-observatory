@@ -34,5 +34,7 @@ CREATE TABLE ai_recommendations (
   asn_id      INTEGER REFERENCES asn(id),
   language    CHAR(2) DEFAULT 'fr',
   content     TEXT,
+  score_at_generation SMALLINT,
+  is_member_at_generation BOOLEAN,
   generated_at TIMESTAMP DEFAULT NOW()
 );

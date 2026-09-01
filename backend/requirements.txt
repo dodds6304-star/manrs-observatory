@@ -4,3 +4,4 @@ schedule
 python-dotenv
 fastapi
 uvicorn
+anthropic
