@@ -1,4 +1,3 @@
-import schedule
 import json
 import os
 import time
@@ -8,6 +7,7 @@ load_dotenv()
 import requests
 import psycopg2
 import re
+import schedule
 
 DB_CONFIG = {
     "host": "localhost",
@@ -146,24 +146,50 @@ def save_prefixes(conn, asn_id, prefixes_with_status):
     conn.commit()
     cur.close()
 
+def save_country_stats(conn, country_code, country_name, total_asn, manrs_members, avg_score, roa_coverage_pct):
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO countries (country_code, country_name, total_asn, manrs_members, avg_manrs_score, roa_coverage_pct)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (country_code) DO UPDATE SET
+            country_name = EXCLUDED.country_name,
+            total_asn = EXCLUDED.total_asn,
+            manrs_members = EXCLUDED.manrs_members,
+            avg_manrs_score = EXCLUDED.avg_manrs_score,
+            roa_coverage_pct = EXCLUDED.roa_coverage_pct,
+            last_updated = NOW()
+    """, (country_code, country_name, total_asn, manrs_members, avg_score, roa_coverage_pct))
+    conn.commit()
+    cur.close()
+
 def collect_country(conn, country_code, roa_data):
     print(f"--- Collecte pour {country_code} ---")
     score = get_manrs_score_summary(country_code)
     asns = get_asns_for_country(country_code)
 
+    manrs_members_count = 0
+    all_statuses = []
+
     for asn_number in asns:
         try:
             manrs_info = get_manrs_status(asn_number)
+            if manrs_info["is_manrs_member"]:
+                manrs_members_count += 1
             asn_id = save_asn(conn, asn_number, country_code, manrs_info, score)
 
             prefixes = get_announced_prefixes(asn_number)
             prefixes_with_status = [(p, check_roa_status(p, asn_number, roa_data)) for p in prefixes]
             save_prefixes(conn, asn_id, prefixes_with_status)
+            all_statuses.extend([s for p, s in prefixes_with_status])
 
             print(f"  ASN {asn_number}: {len(prefixes_with_status)} préfixes")
             time.sleep(0.5)
         except Exception as e:
             print(f"  Erreur sur ASN {asn_number}: {e}")
+
+    valid_count = all_statuses.count("valid")
+    roa_coverage_pct = round((valid_count / len(all_statuses)) * 100, 2) if all_statuses else 0
+    save_country_stats(conn, country_code, WEST_AFRICA_COUNTRIES[country_code], len(asns), manrs_members_count, score, roa_coverage_pct)
 
 def run_full_collection():
     conn = psycopg2.connect(**DB_CONFIG)
